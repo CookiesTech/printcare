@@ -1,0 +1,9 @@
+table.table thead a{color:#fff !important;}
+#body_content lable{margin-top:0px !important;}
+.file_upload_type_hint{color:#ef5350}
+.input-group-append .custom-select {border-radius: 0.25rem 0rem 0rem 0.25rem;}
+.input-group-append .btn {border-radius: 0rem 0.25rem 0.25rem 0rem;padding:8px 12px;}
+
+.a-btn {
+  padding: 8px 5px;
+  cursor: pointer; }
