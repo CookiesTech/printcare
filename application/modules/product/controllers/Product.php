@@ -1,0 +1,865 @@
+<?php
+
+if (!defined('BASEPATH'))
+    exit('No direct script access allowed');
+class Product extends CI_Controller
+{
+    function __construct()
+    {
+        parent::__construct();
+        $this->load->model(array(
+            'Product_model'
+        ));
+        $this->load->helper(array(
+            'form'
+        ));
+        //$this->load->library("Pdf");
+
+        $session_data       = $this->session->userdata( SESSION_LOGIN . 'logged_in' );
+        $data['username']   = $session_data['username'];
+        $data['permission'] = $this->session->userdata(SESSION_LOGIN . 'user_permission');
+        // echo 'TEstsssssss'; exit;
+        if (empty($data['permission'])) {
+            redirect('home');
+        }
+
+        $data['designation']         = $this->Common_model->getDropdownList('designation');
+        $data['user']            = $this->Common_model->getDropdownList('user');
+        
+        $data['title'] = 'Products';
+
+
+        $this->load->view('common/header', $data);
+    }
+    function hasPermission($page)
+    {
+        $res_permission = $this->session->userdata(SESSION_LOGIN . 'user_permission');
+        if ($res_permission && !empty($res_permission)) {
+            if (!in_array($page, $res_permission)) {
+                redirect('access_denied', 'refresh');
+            }
+        } else {
+            redirect('home');
+        }
+    }
+	
+
+    function product_stock_list()
+    {
+
+        ini_set('display_errors', 1);
+        ini_set('display_startup_errors', 1);
+        error_reporting(E_ALL);
+        $this->hasPermission('product_stock_report_view');
+        $filter_data = '';
+        if ($this->input->server('REQUEST_METHOD') == 'POST') {
+            $filter_data = $this->input->post();
+            $reset_data  = $this->input->post('reset');
+            if (isset($reset_data)) {
+                $this->session->unset_userdata('filter_data');
+                $filter_data = '';
+            } else {
+                $this->session->set_userdata('filter_data', $filter_data);
+            }
+        } else {
+            $session_filter_data = $this->session->userdata('filter_data');
+            if (isset($session_filter_data)) {
+                $filter_data = $session_filter_data;
+            } else {
+                $filter_data = '';
+            }
+        }
+        $data['filter_data'] = $filter_data;
+        //$data      = array();
+        $segment_3 = $this->uri->segment(3);
+        $segment_4 = $this->uri->segment(4);
+        $segment_5 = $this->uri->segment(5);
+        // If not pagination page remove filter data from session
+        if (!isset($segment_3) && $this->input->server('REQUEST_METHOD') != 'POST') {
+            $this->session->unset_userdata('filter_data');
+            $filter_data = '';
+            $data['filter_data'] = '';
+        }
+        if (isset($segment_3)) {
+            $page = $segment_3;
+        } else {
+            $page = '1';
+        }
+        if (isset($segment_4)) {
+            $sort = $segment_4;
+        } else {
+            $sort = 'product_id';
+        }
+        if (isset($segment_5)) {
+            $order = $segment_5;
+        } else {
+            $order = 'DESC';
+        }
+        
+        // No used for Redirect to same page after delete action in page 2, page 3,etc...
+        $data['page']             = $page; 
+        
+        $filter_query_data      = array();
+        $data['limit'] = '';
+        if(isset($_REQUEST['limit']) && !empty($_REQUEST['limit'])){
+            $start                     = (($page - 1) * $_REQUEST['limit']);
+            $filter_query_data['limit'] = $_REQUEST['limit'];
+            $data['limit'] = '?limit='.$_REQUEST['limit'];
+        }else{
+            $start                     = (($page - 1) * RPP);
+        }
+        
+        $data['start']             = $start; // Generate SNO in result table based on page number
+        $filter_query_data['start']             = $start;
+        $filter_query_data['sort']              = $sort;
+        $filter_query_data['order']             = $order;
+        $table['tbl_main']           = 'product';
+        $where = '';
+        $data['mainlist_count']      = $this->Common_model->getListCount($table, $filter_data,'product_id',$where);
+        $data['mainlist']            = $this->Common_model->getList($table, $filter_query_data, $filter_data,'product_id', $where);
+        
+        $data['tablefields']      = $this->Common_model->getTableFields('product');
+      // debug($data['mainlist_count']);
+       //debug($data['mainlist']);
+                     
+        $data['operations']          = $this->Common_model->getFilterOperation();
+        $data['init_listing_page']   = 'product/product_stock_list/';
+        $data['listing_page']        = $data['init_listing_page'] . $page . '/';
+        $data['filter_block']      = $this->parser->parse('common/filter', $data, true);
+        $data['pagination_block']   = $this->parser->parse('common/pagination', $data, true);
+        
+        $this->load->view('common/menu');
+        $this->load->view('product/product_stock_list_view.php', $data);
+        $this->load->view('common/footer');
+    }
+
+	function index(){
+		$this->getlist();
+	}
+    function getlist()
+    {
+        $this->hasPermission('product_view');
+        $filter_data = '';
+        if ($this->input->server('REQUEST_METHOD') == 'POST') {
+            $filter_data = $this->input->post();
+            $reset_data  = $this->input->post('reset');
+            if (isset($reset_data)) {
+                $this->session->unset_userdata('filter_data');
+                $filter_data = '';
+            } else {
+                $this->session->set_userdata('filter_data', $filter_data);
+            }
+        } else {
+            $session_filter_data = $this->session->userdata('filter_data');
+            if (isset($session_filter_data)) {
+                $filter_data = $session_filter_data;
+            } else {
+                $filter_data = '';
+            }
+        }
+        $data['filter_data'] = $filter_data;
+        //$data      = array();
+        $segment_3 = $this->uri->segment(3);
+        $segment_4 = $this->uri->segment(4);
+        $segment_5 = $this->uri->segment(5);
+        // If not pagination page remove filter data from session
+        if (!isset($segment_3) && $this->input->server('REQUEST_METHOD') != 'POST') {
+            $this->session->unset_userdata('filter_data');
+            $filter_data = '';
+            $data['filter_data'] = '';
+        }
+        if (isset($segment_3)) {
+            $page = $segment_3;
+        } else {
+            $page = '1';
+        }
+        if (isset($segment_4)) {
+            $sort = $segment_4;
+        } else {
+            $sort = 'product_id';
+        }
+        if (isset($segment_5)) {
+            $order = $segment_5;
+        } else {
+            $order = 'DESC';
+        }
+        
+        // No used for Redirect to same page after delete action in page 2, page 3,etc...
+        $data['page']             = $page; 
+        
+        $filter_query_data      = array();
+        $data['limit'] = '';
+        if(isset($_REQUEST['limit']) && !empty($_REQUEST['limit'])){
+            $start                     = (($page - 1) * $_REQUEST['limit']);
+            $filter_query_data['limit'] = $_REQUEST['limit'];
+            $data['limit'] = '?limit='.$_REQUEST['limit'];
+        }else{
+            $start                     = (($page - 1) * RPP);
+        }
+        
+        $data['start']             = $start; // Generate SNO in result table based on page number
+        $filter_query_data['start']             = $start;
+        $filter_query_data['sort']              = $sort;
+        $filter_query_data['order']             = $order;
+
+        $table['tbl_main']           = 'product';
+        $data['mainlist_count']      = $this->Common_model->getListCount($table, $filter_data,'product_id');
+        $data['mainlist']            = $this->Common_model->getList($table, $filter_query_data, $filter_data,'product_id');
+		
+		
+		$data['tablefields']      = $this->Common_model->getTableFields('product');
+       
+        		  
+        $data['operations']          = $this->Common_model->getFilterOperation();
+        $data['init_listing_page']   = 'product/getlist/';
+        $data['listing_page']        = $data['init_listing_page'] . $page . '/';
+        $data['filter_block']      = $this->parser->parse('common/filter', $data, true);
+        $data['pagination_block']   = $this->parser->parse('common/pagination', $data, true);
+        
+        $this->load->view('common/menu');
+        $this->load->view('product/product_list_view', $data);
+        $this->load->view('common/footer');
+    }
+    
+    function getForm()
+    {      
+        $data['product_batch_block'] = $this->parser->parse('common/product_batch_block',$data, true);
+        $data['action'] = site_url('product/add');
+        $this->load->view('common/menu');
+        $this->load->view('product/product_form_view', $data);
+        $this->load->view('common/footer');
+    }
+    function add()
+    {
+        $this->hasPermission('product_add');
+        if ($this->input->server('REQUEST_METHOD') == 'POST') {
+            // Begin Transaction
+			$this->Common_model->TxnBegin();
+			$data = $this->input->post();
+            $product_batch_list = array();
+            if(isset($data['tbl_product_batch']) && !empty($data['tbl_product_batch'])){
+                $product_batch_list = $data['tbl_product_batch'];
+                unset($data['tbl_product_batch']);
+            }
+			
+			if(isset($_FILES['product_image_file']['name']) && !empty($_FILES['product_image_file']['name'])){
+				$data['product_image_file'] = $this->Common_model->upload_file($_FILES['product_image_file']['name'],$_FILES['product_image_file']['tmp_name'],'product');
+			}
+			
+			//debug($data); exit;
+
+			$res = $this->Common_model->addRecord('product', $data);
+            if(isset($product_batch_list) && !empty($product_batch_list)){
+                //$this->Common_model->removeRecord('product_batch','ref_product_id',$res);
+                foreach ($product_batch_list as $key => $val) {
+                    $val['ref_product_id'] = $res;
+                   // $val['avail_quantity'] = $val['quantity']; 
+                    $this->Common_model->addRecord('product_batch',$val);
+                }
+            }
+            //exit;
+			if($res){
+				$this->Common_model->TxnCommit();
+				$this->Common_model->addUserActivity('product_add',$res); // Record User Activity
+                $_SESSION['success_msg'] = 'Product successfully added ...';
+            }else{
+                $this->Common_model->TxnRollBack();
+                $_SESSION['error_msg'] = 'Error occurred please try again...';
+            }            
+           redirect('product');           
+        } else {
+            $this->getForm();
+        }
+    }
+    function view()
+    {
+        $this->hasPermission('product_view');
+        $id                      = $this->uri->segment(3);
+        $data['product']         = $this->Common_model->getDetails('product', 'product_id', $id);
+        $data['product_numbers']  = $this->Common_model->getDetails('product_contact_numbers', 'ref_product_id', $id);
+        $data['product_emails']  = $this->Common_model->getDetails('product_email_ids', 'ref_product_id', $id);
+        $this->load->view('common/menu');
+        $this->load->view('product/product_details_view', $data);
+        $this->load->view('common/footer');
+    }
+    
+     
+    function edit()
+    {
+        $this->hasPermission('product_edit');
+        if ($this->input->server('REQUEST_METHOD') == 'POST') {
+            $id  = $this->uri->segment(3);
+            // Begin Transaction
+			$this->Common_model->TxnBegin();
+			$data = $this->input->post();
+			
+			if(!isset($data['featured_product'])){
+				$data['featured_product'] = 0;
+			}
+			//debug($data); exit;
+
+             $product_batch_list = array();
+            if(isset($data['tbl_product_batch']) && !empty($data['tbl_product_batch'])){
+                $product_batch_list = $data['tbl_product_batch'];
+                unset($data['tbl_product_batch']);
+            }
+
+			$redirect_to = $data['redirect_to'];
+            unset($data['redirect_to']);
+            if(isset($_FILES['product_image_file']['name']) && !empty($_FILES['product_image_file']['name'])){
+				$data['product_image_file'] = $this->Common_model->upload_file($_FILES['product_image_file']['name'],$_FILES['product_image_file']['tmp_name'],'product');
+			}
+            		
+             $res = $this->Common_model->updateRecord('product', $data, $id);
+
+             $avail_quantity = 0;
+             if(isset($product_batch_list) && !empty($product_batch_list)){
+                //$this->Common_model->removeRecord('product_batch','ref_product_id',$res);
+                foreach ($product_batch_list as $key => $val) {
+                    $val['ref_product_id'] = $res;
+                    $avail_quantity+= $val['avail_quantity']; 
+                    if(isset($val['product_batch_id'])){
+                        $batch_id = $val['product_batch_id'];
+                        unset($val['product_batch_id']);
+                        $this->Common_model->updateRecord('product_batch',$val,$batch_id);
+                    }else{
+                        $this->Common_model->addRecord('product_batch',$val);
+                    }
+                    
+                }
+            }
+            /*if($data['quantity'] != $avail_quantity){
+                echo 'Available quantity and main quantity are mismatching!';
+                exit;
+            }*/
+           // $this->Common_model->updateRecord('product', array('quantity'=>$avail_quantity), $id);
+
+           // debug($avail_quantity); exit;
+
+			if($res){
+				$this->Common_model->TxnCommit();
+				$this->Common_model->addUserActivity('product_edit', $res); // Record User Activity
+                $_SESSION['success_msg'] = 'Product successfully updated ...';
+            }else{
+                $this->Common_model->TxnRollBack();
+                $_SESSION['error_msg'] = 'Error occurred please try again...';
+            }            
+            redirect('product');
+        } else {
+            $id                           = $this->uri->segment(3);
+            $data['product']              = $this->Common_model->getDetails('product', 'product_id', $id);
+            
+            $branch_id = $this->session->userdata(SESSION_LOGIN . 'branch_id');
+            $where = 'product_batch.ref_product_id = '.$id;
+            if($branch_id != 0) {
+              $where.=" AND product_batch.ref_branch_id = '".$branch_id."'";
+            }
+
+            $order_by = 'product_batch.product_batch_id ASC';
+            $data['product_batch_list'] = $this->Common_model->getRecords('product_batch',$where,'',$order_by);
+
+            //$data['product_batch_list']              = $this->Common_model->getDetails('product_batch', 'ref_product_id', $id);
+            $data['product_batch_block'] = $this->parser->parse('common/product_batch_block',$data, true);
+            $data['action'] = site_url('product/edit/'.$id);
+            $this->load->view('common/menu');
+            $this->load->view('product/product_form_view', $data);
+            $this->load->view('common/footer');
+        }
+    }
+    function delete()
+    {        
+        $this->hasPermission('product_delete');
+        // Begin Transaction
+		$this->Common_model->TxnBegin();
+		$delete_id = $this->input->post('checkbox'); 
+        if (!empty($delete_id)) {
+            foreach ($delete_id as $key => $id) {
+                $res = $this->Common_model->removeRecord('product', 'product_id', $id);
+                //$this->Common_model->removeRecord('product_contact_numbers', 'ref_product_id', $id);
+				//$this->Common_model->removeRecord('product_email_ids', 'ref_product_id', $id);
+            }
+        }
+        if($res){
+			$this->Common_model->TxnCommit();
+			$this->Common_model->addUserActivity('product_delete',$res); // Record User Activity
+			$_SESSION['success_msg'] = 'Product successfully deleted ...';
+		}else{
+			$this->Common_model->TxnRollBack();
+			$_SESSION['error_msg'] = 'Error occurred please try again...';
+		}   
+        redirect('product/getlist/1');
+    }
+    
+    function get_product_brokerage_history_list()
+    {
+        $this->hasPermission('product_view');
+        $filter_data = '';
+        if ($this->input->server('REQUEST_METHOD') == 'POST') {
+            $filter_data = $this->input->post();
+            $reset_data  = $this->input->post('reset');
+            if (isset($reset_data)) {
+                $this->session->unset_userdata('filter_data');
+                $filter_data = '';
+            } else {
+                $this->session->set_userdata('filter_data', $filter_data);
+            }
+        } else {
+            $session_filter_data = $this->session->userdata('filter_data');
+            if (isset($session_filter_data)) {
+                $filter_data = $session_filter_data;
+            } else {
+                $filter_data = '';
+            }
+        }
+        $data['filter_data'] = $filter_data;
+        $segment_3 = $this->uri->segment(3);
+        $segment_4 = $this->uri->segment(4);
+        $segment_5 = $this->uri->segment(5);
+        // If not pagination page remove filter data from session
+        if (!isset($segment_3) && $this->input->server('REQUEST_METHOD') != 'POST') {
+            $this->session->unset_userdata('filter_data');
+            $filter_data = '';
+            $data['filter_data'] = '';
+        }
+        if (isset($segment_3)) {
+            $page = $segment_3;
+        } else {
+            $page = '1';
+        }
+        if (isset($segment_4)) {
+            $sort = $segment_4;
+        } else {
+            $sort = 'product_brokerage_history_id';
+        }
+        if (isset($segment_5)) {
+            $order = $segment_5;
+        } else {
+            $order = 'DESC';
+        }
+         $data['page']             = $page; // No used for Redirect to same page after delete action in page 2, page 3,etc...
+        
+        $filter_query_data      = array();
+        $data['limit'] = '';
+        if(isset($_REQUEST['limit']) && !empty($_REQUEST['limit'])){
+            $start                     = (($page - 1) * $_REQUEST['limit']);
+            $filter_query_data['limit'] = $_REQUEST['limit'];
+            $data['limit'] = '?limit='.$_REQUEST['limit'];
+        }else{
+            $start                     = (($page - 1) * RPP);
+        }
+        
+        $data['start']             = $start; // Generate SNO in result table based on page number
+        $filter_query_data['start']             = $start;
+        $filter_query_data['sort']              = $sort;
+        $filter_query_data['order']             = $order;
+        
+        $table                     = array();
+        $table['tbl_main']         = 'product_brokerage_history';
+        $data['mainlist_count']    = $this->Common_model->getListCount($table, $filter_data);
+        $data['mainlist']          = $this->Common_model->getList($table, $filter_query_data, $filter_data);
+        $data['tablefields']       = $this->Common_model->getTableFields('product_brokerage_history');
+        $data['operations']        = $this->Common_model->getFilterOperation();
+        $data['init_listing_page'] = 'product/get_product_brokerage_history_list/';
+        $data['listing_page']      = $data['init_listing_page'] . $page . '/';
+        $data['filter_block']      = $this->parser->parse('common/filter', $data, true);
+        $this->load->view('common/menu');
+        $this->load->view('product/product_brokerage_history_list_view', $data);
+        $this->load->view('common/footer');
+    }
+    
+    
+    function export_product_excel()
+    {
+      
+        $this->hasPermission('product_excel');
+        $filter_data         = '';
+        $session_filter_data = $this->session->userdata('filter_data');
+        if (isset($session_filter_data)) {
+            $filter_data = $session_filter_data;
+        } else {
+            $filter_data = '';
+        }
+        $data          = array();
+        $data['sort']  = 'product_id';
+        $data['order'] = 'ASC';
+        $table['tbl_main']           = 'product';
+        $table['tbl_mobile']         = 'product_contact_numbers';
+        $table['tbl_email']          = 'product_email_ids';
+        $mainlist      = $this->Common_model->getList($table, $data, $filter_data,'product_id');
+	
+        foreach ($mainlist as $key => $val) {
+
+		$con_num = '';
+		$con_per = '';
+		$con_desg = '';
+		$con_type = '';
+		$con_pry = '';
+		$email_con = '';
+		$email_per = '';
+		$email_design = '';
+		$email_pry = '';
+		
+    $contact_number = $this->Common_model->getDetails('product_contact_numbers','ref_product_id',$val->product_id);
+    $contact_email = $this->Common_model->getDetails('product_email_ids','ref_product_id',$val->product_id);
+
+    $count_number = count($contact_number);
+    $count_email = count($contact_email);
+
+    if($count_number>$count_email){
+	$max_count = $count_number;
+    }
+    else{
+	$max_count = $count_email;
+    }
+	    //~ echo '<pre>';
+	    //~ print_r($max_count);
+	    //~ exit;
+	for($i=0; $i<$max_count; $i++){
+
+		$con_per = $contact_number[$i]->contact_person;
+		$con_desg = $contact_number[0]->designation_name;
+		$con_type = $contact_number[$i]->contact_number_type_name;
+		$con_num = $contact_number[$i]->contact_number;
+		$con_pry = $contact_number[$i]->primary_contact;
+		if($con_pry==1){$con_pry = 'Primay';}else{$con_pry = '';}
+		$email_per = $contact_email[$i]->contact_person;
+		$email_con = $contact_email[$i]->email_id;
+		$email_design = $contact_email[$i]->designation_name;
+		$email_pry = $contact_email[$i]->primary_contact;
+		if($email_pry==1){$email_pry = 'Primay';}else{$email_pry = '';
+		    }
+
+	    
+            $export_list[] = array(
+				$val->product_name,
+				$val->product_from_date,
+				$val->product_address_line1,
+				$val->product_address_line2,
+				$val->product_address_line3,
+				$val->district_name,
+				$val->product_pincode,
+				$val->state_name,
+				$val->country_name,				
+				$val->product_description,
+				$con_per,
+				$con_desg,
+				$con_type,
+				$con_num,
+				$con_pry,
+				$email_per,
+				$email_con,
+				$email_design,
+				$email_pry
+            );
+
+	    for($i=1; $i<$max_count; $i++){
+
+		$con_per = $contact_number[$i]->contact_person;
+		$con_desg = $contact_number[0]->designation_name;
+		$con_type = $contact_number[$i]->contact_number_type_name;
+		$con_num = $contact_number[$i]->contact_number;
+		$con_pry = $contact_number[$i]->primary_contact;
+		if($con_pry==1){$con_pry = 'Primay';}else{$con_pry = '';}
+		$email_per = $contact_email[$i]->contact_person;
+		$email_con = $contact_email[$i]->email_id;
+		$email_design = $contact_email[$i]->designation_name;
+		$email_pry = $contact_email[$i]->primary_contact;
+		if($email_pry==1){$email_pry = 'Primay';}else{$email_pry = '';
+		    }
+
+	    
+            $export_list[] = array(
+				'',
+				'',
+				'',
+				'',
+				'',
+				'',
+				'',
+				'',
+				'',
+				'',
+				
+				$con_per,
+				$con_desg,
+				$con_type,
+				$con_num,
+				$con_pry,
+				$email_per,
+				$email_con,
+				$email_design,
+				$email_pry
+            );
+        }
+    }
+    }
+        $export        = array();
+        $export_column = array(
+			'Agent Name',
+			'Agent From Date',
+			'Address line 1',
+			'Address line 2',
+			'Address line 3',
+			'District',
+			'Pincode',
+			'State',			
+			'Country',
+			'Contact Person',
+			'Description',
+			'Designation',
+			'Type',
+			'Mobile NO',
+			'Primary Contact',
+			'Contact Person',
+			'Email',
+			'Designation',
+			'Primary Contact'
+        );
+        $export[0]     = $export_column;
+        foreach ($export_list as $key => $export_row) {
+            $export[] = $export_row;
+        }
+        $this->Common_model->generateExcel($export,'Agent_List_' . date('d-m-Y_H:i:s'));
+        
+        
+       
+    }
+    
+   
+    public function export_product_pdf()
+    {
+       $this->hasPermission('product_pdf');
+        $filter_data         = '';
+        $session_filter_data = $this->session->userdata('filter_data');
+        if (isset($session_filter_data)) {
+            $filter_data = $session_filter_data;
+        } else {
+            $filter_data = '';
+        }
+        $data             = array();
+        $data['sort']     = 'product_id';
+        $data['order']    = 'ASC';
+        $table['tbl_main']  = 'product';
+        $table['tbl_mobile']         = 'product_contact_numbers';
+        $table['tbl_email']          = 'product_email_ids';
+        $mainlist = $this->Common_model->getList($table, $data, $filter_data,'product_id');
+        
+        $data['title'] = 'Product List';
+        
+       // Row Header
+        $data['row_header'] = array();
+        $data['row_header'][] = array(
+			'name'		=> 'S No',
+			'width'		=> '7%',
+			'align'		=> 'center'
+        );
+        
+        $data['row_header'][] = array(
+			'name'		=> 'Product Name',
+			'width'		=> '40%',
+			'align'		=> 'left'
+        );
+        
+        $data['row_header'][] = array(
+			'name'		=> 'Code',
+			'width'		=> '8%',
+			'align'		=> 'left'
+        );
+        
+        
+         $data['row_header'][] = array(
+			'name'		=> 'District',
+			'width'		=> '12%',
+			'align'		=> 'left'
+        );
+        
+        
+        $data['row_header'][] = array(
+			'name'		=> 'Mobile',
+			'width'		=> '10%',
+			'align'		=> 'left'
+        );
+        
+        $data['row_header'][] = array(
+			'name'		=> 'Email',
+			'width'		=> '18%',
+			'align'		=> 'left'
+        );
+               
+        // Row Data
+        $data['row_data'] = array();
+        if(isset($mainlist) && !empty($mainlist)){
+			$i = 1;
+	    foreach($mainlist as $key => $val){
+			$address = array();
+			$contact_number = $this->Common_model->getDetails('product_contact_numbers','ref_product_id',$val->product_id);
+			$contact_email = $this->Common_model->getDetails('product_email_ids','ref_product_id',$val->product_id);
+			$address_final = implode('<br>',$address);
+				
+				 $data['row_data'][] = array(
+					$i,
+					$val->product_name,					
+					$val->product_code,
+					$val->district_name,					
+					$contact_number[0]->contact_number,
+					$contact_email[0]->email_id
+				);
+			  $i++;
+			}
+				
+		}
+       
+         
+/*
+        echo '<pre>';
+        print_r($data['row_data']);
+        echo '</pre>';
+*/
+       // exit;
+        $this->load->library('parser');
+        $html = $this->parser->parse('template/pdf/list_tmp', $data);
+	$header_html = $this->parser->parse('template/pdf/pdf_header',$data);
+	$footer_html = $this->parser->parse('template/pdf/pdf_footer',$data);
+        $file_name = 'product_list_' . date('Y-m-d _ H:i:s') . '.pdf';
+        $this->Common_model->exportPdf($header_html,$footer_html,$html,$file_name,'P','I');
+        
+    }
+   
+   
+   function import_product(){
+	 //~ if($this->input->server('REQUEST_METHOD') == 'POST') {
+
+		$data         = $this->input->post();
+		$ref_user_id = $_POST['ref_user_id'];
+		//$user_result = $this->Client_model->delete_old_record_for_user($ref_user_id);
+		$tot_ins = 0;
+            //$data['file'] = $_FILES['client_file'];
+           // if (isset($_FILES['client_file'])) {
+                $file                         = FCPATH.'product.csv';
+               // exit;
+                $handle                       = fopen($file, "r");
+                
+                $c                            = 0;
+                $i                            = 0;
+                $_SESSION['inserted_rows']    = 0;
+                $_SESSION['notinserted_rows'] = 0;
+                $_SESSION['not_inserted']     = array();
+                $_SESSION['duplication']      = array();
+                while (($filesop = fgetcsv($handle, 1000, ",")) !== false) {
+					$ref_product_id = $filesop[4];	
+					$ref_product_quality_id = 0;	
+					$ref_product_quality_size_id = 0;	
+					$ref_quantity_type_id = 1;	
+					//~ echo '<pre>';
+					//~ print_r($filesop);
+					//~ echo '</pre>';	
+					$where = 'product_quality.product_quality_name1 = "'.str_replace(" ","",$filesop[2]).'" AND product_quality.ref_product_id = "'.$filesop[4].'"';
+					
+					$res_quality = $this->Common_model->getRecords('product_quality',$where);
+					if(isset($res_quality) && !empty($res_quality)){
+						$ref_product_quality_id = $res_quality[0]->product_quality_id;	
+					}
+					
+					echo $where = 'product_quality_size.product_quality_size_name1 = "'.str_replace(" ","",$filesop[3]).'" AND product_quality_size.ref_product_id = "'.$filesop[4].'"';
+					echo '<br>';
+					$res_size = $this->Common_model->getRecords('product_quality_size',$where);
+					if(isset($res_size) && !empty($res_size)){
+						$ref_product_quality_size_id = $res_size[0]->product_quality_size_id;	
+					}						
+             					
+					$product_data['product_name'] = trim($filesop[0]);
+					$product_data['hsn_sac'] = trim($filesop[1]);
+					$product_data['ref_product_id'] = $ref_product_id;
+					$product_data['ref_product_quality_id'] = $ref_product_quality_id;
+					$product_data['ref_product_quality_size_id'] = $ref_product_quality_size_id;
+					$product_data['ref_quantity_type_id'] = $ref_quantity_type_id;
+					//~ echo '<pre>';
+					//~ print_r($product_data);
+					//~ echo '</pre>';	
+					
+					echo $res = $this->Common_model->addRecord('product',$product_data);
+					$tot_ins++;
+						
+                }
+            //}
+                       
+            			
+            $_SESSION['success_msg'] = 'Cusotomer Outstanding successfully Imported ( '.$tot_ins.' Records )...';
+           exit;
+            
+          //  redirect('client/import_client_outstanding');
+		  //~ }else{
+			//~ $data['user'] = $this->Common_model->getDetails('user','ref_user_group_id','4','full_name','ASC'); 
+			//~ $this->load->view('common/menu');
+			//~ $this->load->view('client/import_client_outstanding_form_view', $data);
+			//~ $this->load->view('common/footer');
+	    //~ }
+    }
+
+    function export_product_stock_excel()
+    {
+      
+        $this->hasPermission('product_excel');
+        $filter_data         = '';
+        $session_filter_data = $this->session->userdata('filter_data');
+        if (isset($session_filter_data)) {
+            $filter_data = $session_filter_data;
+        } else {
+            $filter_data = '';
+        }
+        $data          = array();
+        $data['sort']  = 'category.category_name';
+        $data['order'] = ' ASC, product.product_name ASC';
+        $table['tbl_main']           = 'product';
+        $where = '';
+        $mainlist      = $this->Common_model->getList($table, $data, $filter_data,'product_id', $where);
+         //  debug($mainlist); exit;
+        foreach ($mainlist as $key => $val) {
+            $qty = $this->Common_model->get_product_qty($val->product_id);
+            $export_list[] = array(
+                $val->category_name,
+                $val->product_name,
+                $val->sku,
+                $val->quantity_type_name,
+                $qty,
+                $val->product_price,
+                $val->star_rating_name,
+                $val->gst_type_name,
+                $val->reorder_level         
+            );
+        }
+    
+        $export        = array();
+        $export_column = array(
+            'Category Name',
+            'Product Name',
+            'SKU',
+            'Qty Type',         
+            'Qty',
+            'Price',
+            'Star Rating',
+            'GST %',            
+            'Reorder Level'
+        );
+        $export[0]     = $export_column;
+        foreach ($export_list as $key => $export_row) {
+            $export[] = $export_row;
+        }
+        $this->Common_model->generateExcel($export,'product_stock_list_' . date('d-m-Y_H:i:s'));
+       
+    }
+    
+    function remove_batch_particulars() {
+    	$batch_id = $_POST['batch_id'];
+        $qty = $_POST['qty'];
+        $product_id = $_POST['product_id'];
+        //exit;
+    	$data['delete_status'] = 1;
+    	$this->Common_model->updateRecord('product_batch',$data,$batch_id);
+
+        $this->db->query("UPDATE product SET quantity = quantity - $qty WHERE product_id = '".$product_id."'");
+    	echo 'success'; exit;
+	}
+	
+}
+?>
